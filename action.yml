@@ -1,31 +1,30 @@
-name: 'ECS Wait'
-author: 'Oryan Moshe'
-description: 'Waits for ECS service stability'
+name: ECS Wait
+description: Waits for target ECS services to stabilise
+author: Rob Steel
+
 inputs:
+  aws-region:
+    description: "The AWS region where the ECS cluster is located"
+    required: true
   ecs-cluster:
-    description: 'The ECS cluster name (string)'
+    description: "The name of the ECS cluster"
     required: true
   ecs-services:
-    description: 'List of ECS services to wait for (string[])'
+    description: "A JSON array of ECS services to monitor for stability"
     required: true
   retries:
-    description: 'How many times to retry the 10 minute wait (integer)'
-    default: 2
-  aws-access-key-id:
-    description: 'The AWS_ACCESS_KEY_ID (string)'
-  aws-secret-access-key:
-    description: 'The AWS_SECRET_ACCESS_KEY (string)'
-  aws-region:
-    description: 'The AWS_REGION (string)'
+    description: "The number of retries before timing out"
+    required: true
+    default: "5"
   verbose:
-    description: 'Whether to print the retry log (bool)'
-    default: false
+    description: "Enable verbose logging (true/false)"
+    required: false
+    default: "false"
+
 outputs:
   retries:
-    description: 'How many retries happened until success (integer)'
+    description: "The number of attempts made before services stabilised."
+
 runs:
-  using: 'node12'
-  main: 'dist/index.js'
-branding:
-  icon: 'clock'
-  color: 'purple'
+  using: "node20"
+  main: "dist/index.js"

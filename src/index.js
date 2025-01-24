@@ -1,29 +1,55 @@
 const core = require('@actions/core');
-const AWS = require('aws-sdk');
+const { ECSClient } = require('@aws-sdk/client-ecs');
+const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');
+const { waitUntilServicesStable } = require('@aws-sdk/client-ecs');
 
 /**
- * Waits for given AWS ECS services transition into "servicesStable" state.
- * Times out after 10 minutes.
- * @param   {Object}   params
- * @param   {AWS.ECS}  params.ecsConnection - An AWS ECS connection object
- * @param   {string}   params.cluster       - The name of the ECS cluster
- * @param   {string[]} params.services      - A list of ECS services to check for stability
- * @returns {Promise}                         A promise to be resolved when services are stable or rejected after the timeout
+ * Validates that valid AWS credentials are available.
+ * @param   {string} region - The AWS region
+ * @returns {Promise<boolean>} True if credentials are valid, otherwise false
  */
-const waitForStability = ({ ecsConnection, cluster, services }) =>
-  ecsConnection.waitFor('servicesStable', { cluster, services }).promise();
+const validateCredentials = async (region) => {
+  const stsClient = new STSClient({ region });
+  try {
+    await stsClient.send(new GetCallerIdentityCommand({}));
+    return true; // Credentials are valid
+  } catch (error) {
+    console.error('Error validating AWS credentials:', error.message);
+    return false; // Credentials are not valid
+  }
+};
 
 /**
- * Retries the ECS services stability check for the given amount of retries.
+ * Waits for given AWS ECS services to transition into the "servicesStable" state.
+ * Times out after 10 minutes by default (customisable via params).
+ * @param   {Object}   params
+ * @param   {ECSClient} params.ecsClient - An AWS ECS client object
+ * @param   {string}   params.cluster    - The name of the ECS cluster
+ * @param   {string[]} params.services   - A list of ECS services to check for stability
+ * @returns {Promise}                      A promise that resolves when services are stable
+ */
+const waitForStability = async ({ ecsClient, cluster, services }) => {
+  return waitUntilServicesStable(
+    {
+      client: ecsClient,
+      maxWaitTime: 600, // 10 minutes
+    },
+    { cluster, services }
+  );
+};
+
+/**
+ * Retries the ECS services stability check for the given number of retries.
  * @param   {Object}   params
  * @param   {number}   params.retries - The number of times to retry the stability check
  * @param   {boolean}  params.verbose - Whether to print verbose log messages
  * @param   {Object}   params.params  - The rest of the parameters
- * @returns {number}                    The number of tries we did
+ * @returns {number}                    The number of tries made
  */
 const retry = async ({ retries, verbose, ...params }) => {
   let currTry = 1;
   let isStable = false;
+
   while (currTry <= retries && !isStable) {
     try {
       if (verbose) {
@@ -43,32 +69,22 @@ const retry = async ({ retries, verbose, ...params }) => {
 };
 
 /**
- * Creates an AWS ECS connection using the given credentials.
+ * Creates an AWS ECS client using the given credentials.
  * @param   {Object}  params
- * @param   {string}  params.accessKeyId     - The AWS_ACCESS_KEY_ID
- * @param   {string}  params.secretAccessKey - The AWS_SECRET_ACCESS_KEY
- * @param   {string}  params.region          - The AWS_REGION
- * @returns {AWS.ECS}                          An AWS ECS connection object
+ * @param   {string}  params.region - The AWS_REGION
+ * @returns {ECSClient}               An AWS ECS client object
  */
-const createEcsConnection = ({ accessKeyId, secretAccessKey, region }) =>
-  new AWS.ECS({
-    apiVersion: '2014-11-13',
-    accessKeyId,
-    secretAccessKey,
+const createEcsClient = ({ region }) =>
+  new ECSClient({
     region,
   });
 
 /**
- * Extracts step params from environment and context
+ * Extracts step params from environment and context.
  * @returns {Object} The params needed to run this action
  */
 const extractParams = () => {
   const params = {
-    accessKeyId:
-      core.getInput('aws-access-key-id') || process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey:
-      core.getInput('aws-secret-access-key') ||
-      process.env.AWS_SECRET_ACCESS_KEY,
     region: core.getInput('aws-region') || process.env.AWS_REGION,
     retries: parseInt(core.getInput('retries'), 10),
     cluster: core.getInput('ecs-cluster'),
@@ -76,10 +92,8 @@ const extractParams = () => {
     verbose: core.getInput('verbose') === 'true',
   };
 
-  if (!params.accessKeyId || !params.secretAccessKey || !params.region) {
-    core.setFailed(
-      'AWS credentials were not found in inputs or environment variables.'
-    );
+  if (!params.region) {
+    core.setFailed('AWS region was not provided in inputs or environment variables.');
     return null;
   }
 
@@ -97,8 +111,14 @@ const main = async () => {
       return;
     }
 
-    const ecsConnection = createEcsConnection(params);
-    params['ecsConnection'] = ecsConnection;
+    const credentialsValid = await validateCredentials(params.region);
+    if (!credentialsValid) {
+      console.error('AWS credentials are missing or invalid.');
+      return;
+    }
+
+    const ecsClient = createEcsClient(params);
+    params['ecsClient'] = ecsClient;
 
     const actualRetries = await retry(params);
     if (actualRetries > params.retries) {
