@@ -1,76 +1,83 @@
-# AWS ECS `servicesStable` waiter (with retries)
+# ECS Wait Action - Enhanced Version
 
-AWS provides a way to wait for certain ECS services to become `stable`, but this command times out after 10 minutes.\
-This action allows you to wait for services to become stable **and** retry the waiting process as many times as you want.
+This GitHub Action monitors ECS services for stability and waits until all specified services reach a stable state. It builds upon and enhances the original [ECS Wait Action](https://github.com/oryanmoshe/ecs-wait-action) created by [OryanMoshe](https://github.com/oryanmoshe).
 
-## Inputs
+## 🚀 Features
+- **Retries on Failure**: Automatically retries monitoring ECS services up to a configurable number of attempts.
+- **Verbose Logging**: Optional verbose logging for debugging ECS service stability issues.
+- **Supports Multiple Services**: Monitors multiple ECS services simultaneously in a single cluster.
+- **Enhanced Error Handling**: Improved error messages and support for invalid inputs.
+- **AWS SDK v3**: Upgraded to AWS SDK v3 for better performance and modularity.
 
-### `ecs-cluster`
+## 📥 Inputs
+| Name           | Description                                      | Required | Default |
+|----------------|--------------------------------------------------|----------|---------|
+| `aws-region`   | The AWS region where the ECS cluster is located. | Yes      | None    |
+| `ecs-cluster`  | The name of the ECS cluster.                     | Yes      | None    |
+| `ecs-services` | A JSON array of ECS services to monitor.         | Yes      | None    |
+| `retries`      | The number of retries before timing out.         | Yes      | 5       |
+| `verbose`      | Enable verbose logging (true/false).             | No       | false   |
 
-**Required** - _string_\
-The ECS cluster that contains your services.
+## 📤 Outputs
+| Name     | Description                                      |
+|----------|--------------------------------------------------|
+| `retries`| The number of attempts made before stabilizing.  |
 
-### `ecs-services`
-
-**Required** - _string[]_\
-A list of ECS services to make sure are stable.
-
-### `retries`
-
-_Optional_ - _integer_\
-The number of times you want to try the stability check. Default `2`.
-
-### `aws-access-key-id`
-
-_Optional_ - _string_\
-Your AWS ACCESS_KEY_ID.\
-Must be provided as an input / defined as an environment variable.
-
-### `aws-secret-access-key`
-
-_Optional_ - _string_\
-Your AWS SECRET_ACCESS_KEY.\
-Must be provided as an input / defined as an environment variable.
-
-### `aws-region`
-
-_Optional_ - _string_\
-Your AWS REGION.\
-Must be provided as an input / defined as an environment variable.
-
-### `verbose`
-
-_Optional_ - _boolean_\
-Whether to print verbose debug messages to the console. Default `false`.
-
-## Outputs
-
-### `retries`
-
-_integer_\
-How many retries happened until success.
-
-## Example usage
-
-### Using all available options
+## 📋 Example Usage
 
 ```yaml
-uses: oryanmoshe/ecs-wait-action@v1.3
-with:
-  aws-access-key-id: AKIAIOSFODNN7EXAMPLE
-  aws-secret-access-key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-  aws-region: us-east-1
-  ecs-cluster: my-ecs-cluster
-  ecs-services: '["my-ecs-service-1", "my-ecs-service-2"]'
-  retries: 5
-  verbose: false
+name: Wait for ECS Services to Stabilize
+
+on:
+  workflow_dispatch:
+
+jobs:
+  wait-for-ecs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsRole
+          aws-region: eu-west-2
+
+      - name: Wait for ECS Services
+        uses: robsteel24/ecs-wait@v2
+        with:
+          aws-region: eu-west-2
+          ecs-cluster: dev
+          ecs-services: '["servicea", "serviceb"]'
+          retries: 10
+          verbose: true
 ```
 
-### Minimal configuration
+## 🛠️ Development
 
-```yaml
-uses: oryanmoshe/ecs-wait-action@v1.3
-with:
-  ecs-cluster: my-ecs-cluster
-  ecs-services: '["my-ecs-service-1", "my-ecs-service-2"]'
+If you want to contribute or make changes, follow these steps:
+
+### Clone the repository:
+```bash
+git clone https://github.com/robsteel24/ecs-wait.git
+cd ecs-wait
 ```
+
+### Install dependencies:
+```bash
+npm install
+```
+
+### Test locally:
+```bash
+node index.js
+```
+
+## 🏆 Acknowledgments
+
+This project is based on the original [ECS Wait Action](https://github.com/oryanmoshe/ecs-wait-action) created by [oRyanMoshe](https://github.com/oryanmoshe). Enhancements have been made to modernise and extend its functionality.
+
+## 📝 License
+
+This project is licensed under the [MIT License](./LICENSE). See the original project for details on prior contributions.

@@ -1,15 +1,26 @@
 {
-  "name": "ecs-wait-action",
-  "version": "1.0.0",
+  "name": "ecs-wait",
+  "version": "2.0.0",
   "main": "src/index.js",
-  "author": "oryan@moshe.ai",
+  "author": "robsteel24@gmail.com",
+  "contributors": [
+    {
+      "name": "OryanMoshe",
+      "url": "https://github.com/oryanmoshe"
+    }
+  ],
   "license": "ISC",
   "dependencies": {
-    "@actions/core": "^1.2.3",
-    "@actions/github": "^2.1.1",
-    "aws-sdk": "^2.632.0"
+    "@actions/core": "^1.11.1",
+    "@aws-sdk/client-ecs": "^3.734.0",
+    "@aws-sdk/client-sts": "^3.734.0",
+    "eslint": "^9.18.0",
+    "jest": "^29.7.0"
   },
   "devDependencies": {
-    "@zeit/ncc": "^0.21.1"
+    "esbuild": "^0.24.2"
+  },
+  "scripts": {
+    "build": "esbuild src/index.js --bundle --platform=node --outfile=dist/index.js"
   }
 }
